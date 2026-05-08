@@ -86,6 +86,8 @@ function ensureColumn(table, column, definition) {
 ensureColumn('orders', 'extra_albums', 'INTEGER DEFAULT 0');
 ensureColumn('orders', 'album_unit_price', 'REAL DEFAULT 35');
 ensureColumn('orders', 'material_fee', 'REAL DEFAULT 0');
+ensureColumn('orders', 'deposit_payment_method', "TEXT DEFAULT ''");
+ensureColumn('orders', 'final_payment_method', "TEXT DEFAULT ''");
 ensureColumn('users', 'created_by', 'INTEGER');
 
 // 插入默认数据（如果不存在）

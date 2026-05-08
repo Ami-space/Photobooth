@@ -19,6 +19,11 @@ export const useOrdersStore = defineStore('orders', () => {
           parsed.push(parseOrder(item))
         }
       }
+      parsed.sort((a, b) => {
+        const ad = `${a.wedding_date || ''} ${a.start_time || ''}`
+        const bd = `${b.wedding_date || ''} ${b.start_time || ''}`
+        return bd.localeCompare(ad)
+      })
       orders.value = parsed
     } catch {
       orders.value = []

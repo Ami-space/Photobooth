@@ -49,22 +49,21 @@
         <el-table-column label="总金额" width="100">
           <template #default="{ row }">¥{{ row.total_amount }}</template>
         </el-table-column>
-        <el-table-column label="定金" width="100">
+        <el-table-column label="定金" width="160">
           <template #default="{ row }">
             <span v-if="row.deposit_amount > 0" style="color:var(--color-warning)">¥{{ row.deposit_amount }}</span>
+            <span v-if="row.deposit_amount > 0" class="pay-method-inline">（{{ methodMap[row.deposit_payment_method || row.payment_method] || '未填' }}）</span>
             <span v-else class="none">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="尾款" width="100">
+        <el-table-column label="尾款" width="170">
           <template #default="{ row }">
             <span v-if="row.payment_status === 'paid'" style="color:var(--color-success)">
               ¥{{ row.total_amount - row.deposit_amount }}
             </span>
+            <span v-if="row.payment_status === 'paid'" class="pay-method-inline">（{{ methodMap[row.final_payment_method || row.payment_method] || '未填' }}）</span>
             <span v-else class="none">待收</span>
           </template>
-        </el-table-column>
-        <el-table-column label="支付方式" width="100">
-          <template #default="{ row }">{{ methodMap[row.payment_method] || '-' }}</template>
         </el-table-column>
         <el-table-column label="收款状态" width="120">
           <template #default="{ row }">
@@ -73,24 +72,52 @@
         </el-table-column>
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <el-button v-if="row.payment_status === 'unpaid'" size="small" type="warning" plain @click="updatePay(row, 'deposit')">收定金</el-button>
+            <el-button v-if="row.payment_status === 'unpaid'" size="small" type="warning" plain @click="openDepositDialog(row)">收定金</el-button>
             <el-button v-if="row.payment_status === 'deposit'" size="small" type="success" plain @click="updatePay(row, 'paid')">已结清</el-button>
             <el-button size="small" link type="primary" @click="$router.push(`/orders/${row.id}/edit`)"><el-icon><Edit /></el-icon></el-button>
           </template>
         </el-table-column>
       </el-table>
     </div>
+
+    <el-dialog v-model="depositDialogVisible" title="收定金" width="420px">
+      <el-form label-width="100px">
+        <el-form-item label="客户">
+          <el-input :model-value="depositTarget?.customer_name || ''" disabled />
+        </el-form-item>
+        <el-form-item label="定金金额" required>
+          <el-input-number v-model="depositForm.amount" :min="1" :max="depositTarget?.total_amount || 999999" controls-position="right" style="width:100%" />
+        </el-form-item>
+        <el-form-item label="付款方式" required>
+          <el-radio-group v-model="depositForm.method">
+            <el-radio value="wechat">微信</el-radio>
+            <el-radio value="alipay">支付宝</el-radio>
+            <el-radio value="cash">现金</el-radio>
+          </el-radio-group>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="depositDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmDeposit">确认收定金</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { ordersApi } from '../api/index.js'
 import { ElMessage } from 'element-plus'
 
 const orders = ref([])
 const loading = ref(false)
 const filterStatus = ref('')
+const depositDialogVisible = ref(false)
+const depositTarget = ref(null)
+const depositForm = reactive({
+  amount: 0,
+  method: 'wechat',
+})
 
 const payMap    = { unpaid: '未付款', deposit: '已收定金', paid: '已结清' }
 const methodMap = { wechat: '微信', alipay: '支付宝', cash: '现金' }
@@ -121,8 +148,36 @@ const summary = computed(() => {
 })
 
 async function updatePay(row, status) {
-  await ordersApi.update(row.id, { payment_status: status })
+  const data = { payment_status: status }
+  if (status === 'paid') {
+    data.final_payment_method = row.final_payment_method || row.deposit_payment_method || row.payment_method || 'wechat'
+    data.payment_method = data.final_payment_method
+  }
+  await ordersApi.update(row.id, data)
   ElMessage.success('收款状态已更新')
+  load()
+}
+
+function openDepositDialog(row) {
+  depositTarget.value = row
+  depositForm.amount = Number(row.deposit_amount || 0) > 0 ? Number(row.deposit_amount) : Math.min(Number(row.total_amount || 0), 500)
+  depositForm.method = row.deposit_payment_method || row.payment_method || 'wechat'
+  depositDialogVisible.value = true
+}
+
+async function confirmDeposit() {
+  if (!depositTarget.value) return
+  if (!depositForm.amount) return ElMessage.warning('请填写定金金额')
+  if (!depositForm.method) return ElMessage.warning('请选择付款方式')
+  await ordersApi.update(depositTarget.value.id, {
+    payment_status: 'deposit',
+    order_status: ['pending', 'confirmed', 'cancelled'].includes(depositTarget.value.order_status) ? depositTarget.value.order_status : 'pending',
+    deposit_amount: Number(depositForm.amount),
+    deposit_payment_method: depositForm.method,
+    payment_method: depositForm.method,
+  })
+  depositDialogVisible.value = false
+  ElMessage.success('定金已登记')
   load()
 }
 
@@ -146,5 +201,6 @@ onMounted(load)
 .c-name { font-size: 14px; font-weight: 600; color: var(--color-text); }
 .c-phone { font-size: 12px; color: var(--color-text-3); }
 .none { color: var(--color-text-3); }
+.pay-method-inline { color: var(--color-text-3); font-size: 12px; margin-left: 2px; }
 @media (max-width: 768px) { .summary-row { grid-template-columns: repeat(2, 1fr); } }
 </style>

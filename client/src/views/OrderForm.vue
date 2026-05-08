@@ -23,24 +23,24 @@
           <div class="form-section glass-card">
             <div class="section-title">👤 客户信息</div>
             <el-form-item label="客户姓名" prop="customer_name">
-              <el-input v-model="form.customer_name" placeholder="请输入客户姓名" />
+              <el-input v-model="form.customer_name" :disabled="customerLocked" placeholder="请输入客户姓名" />
             </el-form-item>
             <el-form-item label="客户电话">
-              <el-input v-model="form.customer_phone" placeholder="请输入联系电话" />
+              <el-input v-model="form.customer_phone" :disabled="customerLocked" placeholder="请输入联系电话" />
             </el-form-item>
           </div>
 
           <div class="form-section glass-card">
             <div class="section-title">📅 婚礼时间</div>
             <el-form-item label="婚礼日期" prop="wedding_date">
-              <el-date-picker v-model="form.wedding_date" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:100%" />
+              <el-date-picker v-model="form.wedding_date" :disabled="scheduleLocked" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:100%" />
             </el-form-item>
             <div class="time-row">
               <el-form-item label="开始时间" prop="start_time" style="flex:1">
-                <el-time-select v-model="form.start_time" start="08:00" end="23:30" step="00:30" placeholder="开始" style="width:100%" />
+                <el-time-select v-model="form.start_time" :disabled="scheduleLocked" start="08:00" end="23:30" step="00:30" placeholder="开始" style="width:100%" />
               </el-form-item>
               <el-form-item label="结束时间" prop="end_time" style="flex:1">
-                <el-time-select v-model="form.end_time" :start="form.start_time || '08:00'" end="23:30" step="00:30" placeholder="结束" style="width:100%" />
+                <el-time-select v-model="form.end_time" :disabled="scheduleLocked" :start="form.start_time || '08:00'" end="23:30" step="00:30" placeholder="结束" style="width:100%" />
               </el-form-item>
             </div>
           </div>
@@ -48,10 +48,10 @@
           <div class="form-section glass-card">
             <div class="section-title">📍 婚礼地点</div>
             <el-form-item label="酒店名称">
-              <el-input v-model="form.hotel_name" placeholder="酒店名称" />
+              <el-input v-model="form.hotel_name" :disabled="locationLocked" placeholder="酒店名称" />
             </el-form-item>
             <el-form-item label="宴会厅">
-              <el-input v-model="form.hall_name" placeholder="宴会厅名称" />
+              <el-input v-model="form.hall_name" :disabled="locationLocked" placeholder="宴会厅名称" />
             </el-form-item>
           </div>
         </div>
@@ -61,7 +61,7 @@
           <div class="form-section glass-card">
             <div class="section-title">💼 套餐与价格</div>
             <el-form-item label="套餐类型">
-              <el-radio-group v-model="form.package_type" @change="onPackageChange">
+              <el-radio-group v-model="form.package_type" :disabled="detailsLocked" @change="onPackageChange">
                 <el-radio v-for="pkg in packageOptions" :key="pkg.key" :value="pkg.key">
                   {{ pkg.label }}（{{ pkg.hours }}小时）¥{{ pkg.price }}
                 </el-radio>
@@ -69,10 +69,10 @@
               </el-radio-group>
             </el-form-item>
             <el-form-item label="套餐金额" prop="price">
-              <el-input-number v-model="form.price" :disabled="!isCustomPackage" :min="0" :step="100" controls-position="right" style="width:100%" />
+              <el-input-number v-model="form.price" :disabled="detailsLocked || !isCustomPackage" :min="0" :step="100" controls-position="right" style="width:100%" />
             </el-form-item>
             <el-form-item label="额外相册本数">
-              <el-input-number v-model="form.extra_albums" :min="0" :step="1" controls-position="right" style="width:100%" />
+              <el-input-number v-model="form.extra_albums" :disabled="detailsLocked" :min="0" :step="1" controls-position="right" style="width:100%" />
             </el-form-item>
             <el-form-item label="耗材费用（自动计算）">
               <el-input-number :model-value="form.material_fee" :min="0" controls-position="right" disabled style="width:100%" />
@@ -85,12 +85,12 @@
           <div class="form-section glass-card">
             <div class="section-title">👥 人员与设备</div>
             <el-form-item label="人员安排">
-              <el-checkbox-group v-model="form.staff_ids">
+              <el-checkbox-group v-model="form.staff_ids" :disabled="detailsLocked">
                 <el-checkbox v-for="s in staffList" :key="s.id" :value="s.id">{{ s.name }}</el-checkbox>
               </el-checkbox-group>
             </el-form-item>
             <el-form-item label="设备安排">
-              <el-checkbox-group v-model="form.device_ids">
+              <el-checkbox-group v-model="form.device_ids" :disabled="detailsLocked">
                 <el-checkbox v-for="d in deviceList" :key="d.id" :value="d.id">{{ d.name }}</el-checkbox>
               </el-checkbox-group>
             </el-form-item>
@@ -99,17 +99,27 @@
           <div class="form-section glass-card">
             <div class="section-title">💰 收款信息</div>
             <el-form-item label="收款状态">
-              <el-radio-group v-model="form.payment_status">
+              <el-radio-group v-model="form.payment_status" :disabled="paymentLocked">
                 <el-radio value="unpaid">未付款</el-radio>
                 <el-radio value="deposit">已收定金</el-radio>
                 <el-radio value="paid">已结清</el-radio>
               </el-radio-group>
             </el-form-item>
             <el-form-item label="定金金额" v-if="form.payment_status === 'deposit'">
-              <el-input-number v-model="form.deposit_amount" :min="0" controls-position="right" style="width:100%" />
+              <el-input-number v-model="form.deposit_amount" :disabled="paymentLocked" :min="0" :max="form.total_amount" controls-position="right" style="width:100%" />
             </el-form-item>
-            <el-form-item label="支付方式">
-              <el-radio-group v-model="form.payment_method">
+            <el-form-item label="尾款金额" v-if="form.payment_status === 'paid'">
+              <el-input-number :model-value="finalPaymentAmount" :min="0" controls-position="right" disabled style="width:100%" />
+            </el-form-item>
+            <el-form-item label="定金支付方式" v-if="form.payment_status === 'deposit'">
+              <el-radio-group v-model="form.deposit_payment_method" :disabled="paymentLocked">
+                <el-radio value="wechat">微信</el-radio>
+                <el-radio value="alipay">支付宝</el-radio>
+                <el-radio value="cash">现金</el-radio>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="尾款支付方式" v-if="form.payment_status === 'paid'">
+              <el-radio-group v-model="form.final_payment_method" :disabled="paymentLocked">
                 <el-radio value="wechat">微信</el-radio>
                 <el-radio value="alipay">支付宝</el-radio>
                 <el-radio value="cash">现金</el-radio>
@@ -121,10 +131,7 @@
             <div class="section-title">📋 订单状态与备注</div>
             <el-form-item label="订单状态">
               <el-select v-model="form.order_status" style="width:100%">
-                <el-option label="待确认" value="pending" />
-                <el-option label="已确认" value="confirmed" />
-                <el-option label="已完成" value="completed" />
-                <el-option label="已取消" value="cancelled" />
+                <el-option v-for="option in availableOrderStatusOptions" :key="option.value" :label="option.label" :value="option.value" />
               </el-select>
             </el-form-item>
             <el-form-item label="备注">
@@ -179,6 +186,7 @@ const conflicts = ref([])
 const staffList = ref([])
 const deviceList = ref([])
 const originalSchedule = ref({ wedding_date: '', start_time: '', end_time: '' })
+const originalOrderStatus = ref('')
 const packageOptions = ref([])
 const albumUnitPrice = ref(35)
 
@@ -190,7 +198,7 @@ const form = reactive({
   package_type: 'pkg_2h', price: 1388, total_amount: 1388,
   staff_ids: [], device_ids: [],
   order_status: 'pending', payment_status: 'unpaid',
-  deposit_amount: 0, payment_method: 'wechat',
+  deposit_amount: 0, deposit_payment_method: 'wechat', final_payment_method: 'wechat', payment_method: '',
   notes: '',
   extra_albums: 0,
   album_unit_price: 35,
@@ -206,6 +214,33 @@ const rules = {
 }
 
 const isCustomPackage = computed(() => form.package_type === 'custom')
+const finalStatuses = ['completed', 'cancelled']
+const isFinalOrder = computed(() => isEdit.value && finalStatuses.includes(originalOrderStatus.value))
+const isConfirmedOrder = computed(() => isEdit.value && originalOrderStatus.value === 'confirmed')
+const customerLocked = computed(() => isFinalOrder.value || isConfirmedOrder.value)
+const scheduleLocked = computed(() => isFinalOrder.value || isConfirmedOrder.value)
+const locationLocked = computed(() => isFinalOrder.value || isConfirmedOrder.value)
+const detailsLocked = computed(() => isFinalOrder.value)
+const paymentLocked = computed(() => isFinalOrder.value)
+const finalPaymentAmount = computed(() => Math.max(Number(form.total_amount || 0) - Number(form.deposit_amount || 0), 0))
+const orderStatusOptions = [
+  { label: '待确认', value: 'pending' },
+  { label: '已确认', value: 'confirmed' },
+  { label: '已完成', value: 'completed' },
+  { label: '已取消', value: 'cancelled' },
+]
+const availableOrderStatusOptions = computed(() => {
+  if (isFinalOrder.value) {
+    return orderStatusOptions.filter((item) => ['completed', 'cancelled'].includes(item.value))
+  }
+  if (form.payment_status === 'deposit') {
+    return orderStatusOptions.filter((item) => ['pending', 'confirmed', 'cancelled'].includes(item.value))
+  }
+  if (form.payment_status === 'paid') {
+    return orderStatusOptions.filter((item) => ['completed', 'cancelled'].includes(item.value))
+  }
+  return orderStatusOptions.filter((item) => ['pending', 'cancelled'].includes(item.value))
+})
 
 function recalcAmount() {
   const extraAlbums = Number(form.extra_albums || 0)
@@ -238,6 +273,34 @@ function normalizePackageOptions(raw) {
   }))
 }
 
+function normalizeStatusByPayment() {
+  if (isFinalOrder.value) return
+  const available = availableOrderStatusOptions.value.map((item) => item.value)
+  if (!available.includes(form.order_status)) {
+    form.order_status = available[0] || 'pending'
+  }
+}
+
+function normalizePaymentFields() {
+  if (form.payment_status === 'unpaid') {
+    form.deposit_amount = 0
+    form.deposit_payment_method = ''
+    form.final_payment_method = ''
+    form.payment_method = ''
+    return
+  }
+  if (form.payment_status === 'deposit') {
+    form.final_payment_method = ''
+    if (!form.deposit_payment_method) form.deposit_payment_method = 'wechat'
+    form.payment_method = form.deposit_payment_method
+    return
+  }
+  if (form.payment_status === 'paid') {
+    if (!form.final_payment_method) form.final_payment_method = 'wechat'
+    form.payment_method = form.final_payment_method
+  }
+}
+
 async function handleSubmit() {
   await formRef.value?.validate()
   saving.value = true
@@ -261,6 +324,19 @@ async function handleSubmit() {
 
 async function doSave(force) {
   const data = { ...form, force }
+  if (form.payment_status === 'deposit') {
+    data.payment_method = form.deposit_payment_method || 'wechat'
+    data.final_payment_method = ''
+  }
+  if (form.payment_status === 'paid') {
+    data.payment_method = form.final_payment_method || 'wechat'
+  }
+  if (form.payment_status === 'unpaid') {
+    data.deposit_amount = 0
+    data.payment_method = ''
+    data.deposit_payment_method = ''
+    data.final_payment_method = ''
+  }
   if (isEdit.value) {
     const scheduleChanged =
       form.wedding_date !== originalSchedule.value.wedding_date ||
@@ -319,6 +395,8 @@ onMounted(async () => {
         ...o,
         staff_ids: typeof o.staff_ids === 'string' ? JSON.parse(o.staff_ids) : (o.staff_ids || []),
         device_ids: typeof o.device_ids === 'string' ? JSON.parse(o.device_ids) : (o.device_ids || []),
+        deposit_payment_method: o.deposit_payment_method || (o.payment_status === 'deposit' ? o.payment_method : ''),
+        final_payment_method: o.final_payment_method || (o.payment_status === 'paid' ? o.payment_method : ''),
       })
       if (!form.album_unit_price) form.album_unit_price = albumUnitPrice.value
       originalSchedule.value = {
@@ -326,9 +404,12 @@ onMounted(async () => {
         start_time: o.start_time || '',
         end_time: o.end_time || '',
       }
+      originalOrderStatus.value = o.order_status || ''
       recalcAmount()
+      normalizePaymentFields()
     } else {
       onPackageChange(form.package_type)
+      normalizePaymentFields()
     }
   } catch {
     staffList.value = []
@@ -343,6 +424,15 @@ onMounted(async () => {
 
 watch(() => form.extra_albums, recalcAmount)
 watch(() => form.price, recalcAmount)
+watch(() => form.payment_status, normalizeStatusByPayment)
+watch(() => form.payment_status, normalizePaymentFields)
+watch(() => form.deposit_payment_method, () => {
+  if (form.payment_status === 'deposit') form.payment_method = form.deposit_payment_method
+})
+watch(() => form.final_payment_method, () => {
+  if (form.payment_status === 'paid') form.payment_method = form.final_payment_method
+})
+watch(() => form.order_status, normalizeStatusByPayment)
 </script>
 
 <style scoped>

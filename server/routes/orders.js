@@ -3,6 +3,28 @@ const router = express.Router();
 const db = require('../db/database');
 const { checkConflict } = require('../middleware/conflictCheck');
 
+function normalizeOrderStatus(paymentStatus, orderStatus) {
+  if (paymentStatus === 'unpaid' && !['pending', 'cancelled'].includes(orderStatus)) {
+    return 'pending';
+  }
+  if (paymentStatus === 'deposit' && !['pending', 'confirmed', 'cancelled'].includes(orderStatus)) {
+    return 'pending';
+  }
+  if (paymentStatus === 'paid' && !['completed', 'cancelled'].includes(orderStatus)) {
+    return 'completed';
+  }
+  return orderStatus;
+}
+
+function parseJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  try {
+    return JSON.parse(value || '[]');
+  } catch {
+    return [];
+  }
+}
+
 // GET /api/orders - 获取订单列表（支持筛选）
 router.get('/', (req, res) => {
   const { date, status, payment_status, keyword, month, year } = req.query;
@@ -22,7 +44,7 @@ router.get('/', (req, res) => {
     params.push(k, k, k);
   }
 
-  sql += ' ORDER BY wedding_date ASC, start_time ASC';
+  sql += ' ORDER BY wedding_date DESC, start_time DESC';
   const orders = db.prepare(sql).all(...params);
   res.json({ success: true, data: orders });
 });
@@ -62,14 +84,16 @@ router.get('/:id', (req, res) => {
 
 // POST /api/orders - 新增订单
 router.post('/', (req, res) => {
-  const {
+  let {
     customer_name, customer_phone, wedding_date, start_time, end_time,
     hotel_name, hall_name, package_type, price,
     staff_ids, device_ids, order_status, payment_status,
-    deposit_amount, total_amount, payment_method, payment_date, notes,
+    deposit_amount, total_amount, payment_method, deposit_payment_method, final_payment_method, payment_date, notes,
     extra_albums, album_unit_price, material_fee,
     force = false  // 强制忽略冲突
   } = req.body;
+  payment_status = payment_status || 'unpaid';
+  order_status = normalizeOrderStatus(payment_status, order_status || 'pending');
 
   if (!customer_name || !wedding_date || !start_time || !end_time) {
     return res.status(400).json({ success: false, message: '客户姓名、日期、时间为必填项' });
@@ -93,18 +117,21 @@ router.post('/', (req, res) => {
       customer_name, customer_phone, wedding_date, start_time, end_time,
       hotel_name, hall_name, package_type, price,
       staff_ids, device_ids, order_status, payment_status,
-      deposit_amount, total_amount, payment_method, payment_date, notes,
+      deposit_amount, total_amount, payment_method, deposit_payment_method, final_payment_method, payment_date, notes,
       extra_albums, album_unit_price, material_fee
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
     customer_name, customer_phone || '', wedding_date, start_time, end_time,
     hotel_name || '', hall_name || '', package_type || 'standard', price || 1288,
     JSON.stringify(staff_ids || []), JSON.stringify(device_ids || []),
-    order_status || 'pending', payment_status || 'unpaid',
+    order_status, payment_status,
     deposit_amount || 0, total_amount || price || 1288,
-    payment_method || '', payment_date || '', notes || '',
+    payment_method || '',
+    req.body.deposit_payment_method || '',
+    req.body.final_payment_method || '',
+    payment_date || '', notes || '',
     Number(extra_albums || 0), Number(album_unit_price || 35), Number(material_fee || 0)
   );
 
@@ -118,21 +145,26 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ success: false, message: '订单不存在' });
 
-  const {
+  let {
     customer_name, customer_phone, wedding_date, start_time, end_time,
     hotel_name, hall_name, package_type, price,
     staff_ids, device_ids, order_status, payment_status,
-    deposit_amount, total_amount, payment_method, payment_date, notes,
+    deposit_amount, total_amount, payment_method, deposit_payment_method, final_payment_method, payment_date, notes,
     extra_albums, album_unit_price, material_fee,
     force = false
   } = req.body;
 
-  const newDate = wedding_date || existing.wedding_date;
-  const newStart = start_time || existing.start_time;
-  const newEnd = end_time || existing.end_time;
+  const existingStatus = existing.order_status;
+  const isFinalOrder = ['completed', 'cancelled'].includes(existingStatus);
+  const isConfirmedOrder = existingStatus === 'confirmed';
+  const nextPaymentStatus = isFinalOrder ? existing.payment_status : (payment_status ?? existing.payment_status);
+  const nextOrderStatus = normalizeOrderStatus(nextPaymentStatus, order_status ?? existing.order_status);
+  const newDate = (isFinalOrder || isConfirmedOrder) ? existing.wedding_date : (wedding_date || existing.wedding_date);
+  const newStart = (isFinalOrder || isConfirmedOrder) ? existing.start_time : (start_time || existing.start_time);
+  const newEnd = (isFinalOrder || isConfirmedOrder) ? existing.end_time : (end_time || existing.end_time);
 
   // 冲突检测（排除自身）
-  if (!force && (wedding_date || start_time || end_time)) {
+  if (!force && !isFinalOrder && !isConfirmedOrder && (wedding_date || start_time || end_time)) {
     const conflicts = checkConflict(newDate, newStart, newEnd, id);
     if (conflicts.length > 0) {
       return res.status(409).json({
@@ -149,30 +181,32 @@ router.put('/:id', (req, res) => {
       customer_name = ?, customer_phone = ?, wedding_date = ?, start_time = ?, end_time = ?,
       hotel_name = ?, hall_name = ?, package_type = ?, price = ?,
       staff_ids = ?, device_ids = ?, order_status = ?, payment_status = ?,
-      deposit_amount = ?, total_amount = ?, payment_method = ?, payment_date = ?,
+      deposit_amount = ?, total_amount = ?, payment_method = ?, deposit_payment_method = ?, final_payment_method = ?, payment_date = ?,
       notes = ?, extra_albums = ?, album_unit_price = ?, material_fee = ?,
       updated_at = datetime('now','localtime')
     WHERE id = ?
   `).run(
-    customer_name ?? existing.customer_name,
-    customer_phone ?? existing.customer_phone,
+    (isFinalOrder || isConfirmedOrder) ? existing.customer_name : (customer_name ?? existing.customer_name),
+    (isFinalOrder || isConfirmedOrder) ? existing.customer_phone : (customer_phone ?? existing.customer_phone),
     newDate, newStart, newEnd,
-    hotel_name ?? existing.hotel_name,
-    hall_name ?? existing.hall_name,
-    package_type ?? existing.package_type,
-    price ?? existing.price,
-    JSON.stringify(staff_ids ?? JSON.parse(existing.staff_ids)),
-    JSON.stringify(device_ids ?? JSON.parse(existing.device_ids)),
-    order_status ?? existing.order_status,
-    payment_status ?? existing.payment_status,
-    deposit_amount ?? existing.deposit_amount,
-    total_amount ?? existing.total_amount,
-    payment_method ?? existing.payment_method,
-    payment_date ?? existing.payment_date,
+    (isFinalOrder || isConfirmedOrder) ? existing.hotel_name : (hotel_name ?? existing.hotel_name),
+    (isFinalOrder || isConfirmedOrder) ? existing.hall_name : (hall_name ?? existing.hall_name),
+    isFinalOrder ? existing.package_type : (package_type ?? existing.package_type),
+    isFinalOrder ? existing.price : (price ?? existing.price),
+    JSON.stringify(isFinalOrder ? parseJsonArray(existing.staff_ids) : (staff_ids ?? parseJsonArray(existing.staff_ids))),
+    JSON.stringify(isFinalOrder ? parseJsonArray(existing.device_ids) : (device_ids ?? parseJsonArray(existing.device_ids))),
+    nextOrderStatus,
+    nextPaymentStatus,
+    isFinalOrder ? existing.deposit_amount : (deposit_amount ?? existing.deposit_amount),
+    isFinalOrder ? existing.total_amount : (total_amount ?? existing.total_amount),
+    isFinalOrder ? existing.payment_method : (payment_method ?? existing.payment_method),
+    isFinalOrder ? existing.deposit_payment_method : (deposit_payment_method ?? existing.deposit_payment_method),
+    isFinalOrder ? existing.final_payment_method : (final_payment_method ?? existing.final_payment_method),
+    isFinalOrder ? existing.payment_date : (payment_date ?? existing.payment_date),
     notes ?? existing.notes,
-    extra_albums ?? existing.extra_albums,
-    album_unit_price ?? existing.album_unit_price,
-    material_fee ?? existing.material_fee,
+    isFinalOrder ? existing.extra_albums : (extra_albums ?? existing.extra_albums),
+    isFinalOrder ? existing.album_unit_price : (album_unit_price ?? existing.album_unit_price),
+    isFinalOrder ? existing.material_fee : (material_fee ?? existing.material_fee),
     id
   );
 
