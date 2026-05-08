@@ -25,7 +25,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
-    if (err.response?.status === 401) {
+    const reqUrl = err.config?.url || ''
+    const isLoginApi = reqUrl.includes('/api/auth/login')
+    if (err.response?.status === 401 && !isLoginApi) {
       localStorage.removeItem('pb_token')
       localStorage.removeItem('pb_user')
       window.location.href = '/login'
@@ -66,6 +68,15 @@ export const staffApi = {
   create: (data) => api.post('/api/staff', data),
   update: (id, data) => api.put(`/api/staff/${id}`, data),
   delete: (id) => api.delete(`/api/staff/${id}`),
+}
+
+// ── Users (Admin) ────────────────────────────
+export const usersApi = {
+  list: () => api.get('/api/users'),
+  create: (data) => api.post('/api/users', data),
+  update: (id, data) => api.put(`/api/users/${id}`, data),
+  updatePassword: (id, password) => api.put(`/api/users/${id}/password`, { password }),
+  delete: (id) => api.delete(`/api/users/${id}`),
 }
 
 // ── Stats ────────────────────────────────────

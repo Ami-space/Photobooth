@@ -6,6 +6,7 @@ const ordersRouter = require('./routes/orders');
 const devicesRouter = require('./routes/devices');
 const staffRouter = require('./routes/staff');
 const statsRouter = require('./routes/stats');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,6 +45,7 @@ app.use('/api/orders', requireAuth, ordersRouter);
 app.use('/api/devices', requireAuth, devicesRouter);
 app.use('/api/staff', requireAuth, staffRouter);
 app.use('/api/stats', requireAuth, statsRouter);
+app.use('/api/users', requireAuth, usersRouter);
 
 // 生产环境：仅在 client/dist 存在时才托管静态文件
 // （Railway 上只跑后端，静态文件由 Vercel 托管，此块不会执行）
@@ -66,12 +68,8 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🎉 Photobooth 服务器启动成功`);
-  console.log(`📡 本地访问: http://localhost:${PORT}`);
-  console.log(`🌐 局域网访问: http://<本机IP>:${PORT}`);
-  console.log(`\n默认账号:`);
-  console.log(`  admin / admin123`);
-  console.log(`  manaiji / manaiji123`);
-  console.log(`  liulala / liulala123\n`);
+  console.log(`📡 端口: ${PORT}`);
+  console.log(`🔑 默认账号: admin / ${process.env.ADMIN_PASSWORD || 'admin123'}\n`);
 });
 
 module.exports = app;

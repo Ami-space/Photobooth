@@ -13,8 +13,8 @@
         <p class="logo-sub">排单管理系统</p>
       </div>
 
-      <el-form :model="form" :rules="rules" ref="formRef" @submit.prevent="handleLogin">
-        <el-form-item prop="username">
+      <el-form :model="form" @submit.prevent>
+        <el-form-item>
           <el-input
             v-model="form.username"
             placeholder="用户名"
@@ -23,7 +23,7 @@
             autofocus
           />
         </el-form-item>
-        <el-form-item prop="password">
+        <el-form-item>
           <el-input
             v-model="form.password"
             placeholder="密码"
@@ -31,12 +31,13 @@
             size="large"
             prefix-icon="Lock"
             show-password
-            @keyup.enter="handleLogin"
+            @keyup.enter.prevent="handleLogin"
           />
         </el-form-item>
 
         <el-button
           type="primary"
+          native-type="button"
           size="large"
           class="login-btn"
           :loading="loading"
@@ -45,8 +46,7 @@
           {{ loading ? '登录中...' : '登 录' }}
         </el-button>
       </el-form>
-
-      <p class="login-hint">默认账号：manaiji / manaiji123</p>
+      <p v-if="errorText" class="login-error">{{ errorText }}</p>
     </div>
   </div>
 </template>
@@ -59,24 +59,27 @@ import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const formRef = ref()
 const loading = ref(false)
+const errorText = ref('')
 
 const form = reactive({ username: '', password: '' })
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-}
 
 async function handleLogin() {
-  await formRef.value?.validate()
+  errorText.value = ''
+  const username = form.username.trim()
+  const password = String(form.password || '').trim()
+  if (!username || !password) {
+    errorText.value = '请先输入用户名和密码'
+    return
+  }
   loading.value = true
   try {
-    await authStore.login(form.username, form.password)
+    await authStore.login(username, password)
     ElMessage.success('登录成功！')
     router.push('/calendar')
   } catch (err) {
-    ElMessage.error(err?.message || '用户名或密码错误')
+    errorText.value = err?.message || '登录失败，请检查账号密码或网络'
+    ElMessage.error(errorText.value)
   } finally {
     loading.value = false
   }
@@ -139,6 +142,13 @@ async function handleLogin() {
   transition: all 0.3s ease !important;
 }
 .login-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,0.4) !important; }
+
+.login-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #f56c6c;
+  text-align: center;
+}
 
 .login-hint { text-align: center; color: var(--color-text-3); font-size: 12px; margin-top: 16px; }
 </style>

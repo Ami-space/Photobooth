@@ -7,7 +7,8 @@ const tokens = new Map(); // token -> { username, display_name, role }
 
 // POST /api/auth/login
 router.post('/login', (req, res) => {
-  const { username, password } = req.body;
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
   if (!username || !password) {
     return res.status(400).json({ success: false, message: '请输入用户名和密码' });
   }

@@ -69,6 +69,12 @@ const routes = [
         component: () => import('../views/PricingSettings.vue'),
         meta: { title: '套餐配置' }
       },
+      {
+        path: 'accounts',
+        name: 'Accounts',
+        component: () => import('../views/Accounts.vue'),
+        meta: { title: '账号管理', roles: ['admin', 'manager'] }
+      },
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }
@@ -82,8 +88,13 @@ const router = createRouter({
 // 全局路由守卫
 router.beforeEach((to) => {
   const token = localStorage.getItem('pb_token')
+  const user = JSON.parse(localStorage.getItem('pb_user') || 'null')
+  const role = String(user?.role || '').trim().toLowerCase()
   if (!to.meta.public && !token) {
     return { name: 'Login' }
+  }
+  if (to.meta.roles && !to.meta.roles.includes(role)) {
+    return { name: 'Calendar' }
   }
   if (to.name === 'Login' && token) {
     return { name: 'Calendar' }

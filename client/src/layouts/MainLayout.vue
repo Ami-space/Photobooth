@@ -32,7 +32,7 @@
           <div class="user-avatar">{{ userInitial }}</div>
           <div class="user-details">
             <div class="user-name">{{ authStore.user?.display_name }}</div>
-            <div class="user-role">管理员</div>
+            <div class="user-role">{{ roleText }}</div>
           </div>
         </div>
         <div v-else class="user-avatar-sm">{{ userInitial }}</div>
@@ -95,22 +95,37 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const sidebarCollapsed = ref(false)
+const normalizedRole = computed(() => {
+  const cachedUser = JSON.parse(localStorage.getItem('pb_user') || 'null')
+  return String(authStore.user?.role || cachedUser?.role || '').trim().toLowerCase()
+})
 
-const navItems = [
+const allNavItems = [
   { path: '/calendar', label: '排期日历', icon: 'Calendar' },
   { path: '/orders',   label: '订单管理', icon: 'Tickets' },
   { path: '/payment',  label: '收款管理', icon: 'CreditCard' },
   { path: '/devices',  label: '设备管理', icon: 'Camera' },
   { path: '/staff',    label: '人员管理', icon: 'User' },
+  { path: '/accounts', label: '账号管理', icon: 'UserFilled', roles: ['admin', 'manager'] },
   { path: '/pricing',  label: '套餐配置', icon: 'Setting' },
   { path: '/stats',    label: '数据统计', icon: 'TrendCharts' },
 ]
+const navItems = computed(() => {
+  return allNavItems.filter((item) => !item.roles || item.roles.includes(normalizedRole.value))
+})
 
 const isActive = (path) => route.path === path || route.path.startsWith(path + '/')
 const currentTitle = computed(() => route.meta.title || 'Photobooth')
 const userInitial = computed(() => {
   const name = authStore.user?.display_name || 'A'
   return name.charAt(0)
+})
+const roleText = computed(() => {
+  const role = normalizedRole.value
+  if (role === 'admin') return '管理员'
+  if (role === 'manager') return '店长'
+  if (role === 'staff') return '员工'
+  return '用户'
 })
 
 async function handleCommand(cmd) {
