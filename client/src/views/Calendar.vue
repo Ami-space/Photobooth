@@ -65,7 +65,7 @@
     <!-- Day Detail Drawer -->
     <el-drawer
       v-model="drawerVisible"
-      :title="selectedDate + ' 订单详情00'"
+      :title="selectedDate + ' 订单详情'"
       direction="rtl"
       size="420px"
     >
@@ -87,7 +87,7 @@
               </span>
             </div>
           </div>
-          <div class="order-detail-body">aaaaa{{ order }}bbbbb
+          <div class="order-detail-body">
             <div class="detail-row"><el-icon><Clock /></el-icon> {{ order.start_time }} - {{ order.end_time }}</div>
             <div class="detail-row" v-if="order.hotel_name"><el-icon><Location /></el-icon> {{ order.hotel_name }} {{ order.hall_name }}</div>
             <div class="detail-row"><el-icon><Phone /></el-icon> {{ order.customer_phone || '暂无' }}</div>

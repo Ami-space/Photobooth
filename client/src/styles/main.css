@@ -81,6 +81,16 @@ body {
   --el-button-hover-text-color: var(--color-text) !important;
 }
 
+.el-button--primary.is-plain {
+  --el-button-bg-color: rgba(99,102,241,0.16) !important;
+  --el-button-border-color: rgba(99,102,241,0.45) !important;
+  --el-button-text-color: #fff !important;
+  --el-button-hover-bg-color: var(--color-primary) !important;
+  --el-button-hover-border-color: var(--color-primary) !important;
+  --el-button-hover-text-color: #fff !important;
+  color: #fff !important;
+}
+
 .el-input__wrapper,
 .el-select .el-input__wrapper,
 .el-select__wrapper,
@@ -97,6 +107,7 @@ body {
 .el-select__placeholder,
 .el-date-editor .el-range-input,
 .el-textarea__inner {
+  background: transparent !important;
   color: var(--color-text) !important;
 }
 .el-input__inner::placeholder,
@@ -413,8 +424,21 @@ body,
 .el-input__inner,
 .el-date-editor .el-range-input,
 .el-date-editor .el-range-separator {
+  background: transparent !important;
   color: var(--color-text) !important;
   -webkit-text-fill-color: var(--color-text) !important;
+}
+
+.el-input__inner:-webkit-autofill,
+.el-input__inner:-webkit-autofill:hover,
+.el-input__inner:-webkit-autofill:focus,
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  box-shadow: 0 0 0 1000px var(--color-surface-2) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--color-surface-2) inset !important;
+  -webkit-text-fill-color: var(--color-text) !important;
+  caret-color: var(--color-text) !important;
 }
 
 .el-popper,
@@ -443,7 +467,6 @@ body,
 }
 
 .el-table,
-.el-table *,
 .el-table table,
 .el-table thead,
 .el-table tbody,
